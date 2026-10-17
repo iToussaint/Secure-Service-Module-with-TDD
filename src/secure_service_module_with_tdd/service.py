@@ -25,12 +25,15 @@ class UserService:
 
     def register(self, username: str, password: str) -> User:
         """Register a new user."""
-        if len(password) < self._min_password_length:
-            raise InvalidPasswordError(
-                f"Password must be at least {self._min_password_length} characters"
-            )
+        self._enforce_password_policy(password)
         if self._repository.exists(username):
             raise UserAlreadyExistsError(f"User {username!r} already exists")
         user = User(username=username, password_hash=self._hasher.hash(password))
         self._repository.add(user)
         return user
+
+    def _enforce_password_policy(self, password: str) -> None:
+        if len(password) < self._min_password_length:
+            raise InvalidPasswordError(
+                f"Password must be at least {self._min_password_length} characters"
+            )
