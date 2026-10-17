@@ -41,6 +41,9 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "N"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["secure_service_module_with_tdd"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
