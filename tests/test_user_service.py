@@ -4,7 +4,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from secure_service_module_with_tdd.exceptions import UserAlreadyExistsError
+from secure_service_module_with_tdd.exceptions import (
+    InvalidPasswordError,
+    UserAlreadyExistsError,
+)
 from secure_service_module_with_tdd.models import User
 from secure_service_module_with_tdd.service import UserService
 
@@ -31,3 +34,32 @@ class TestRegister:
 
         hasher.hash.assert_not_called()
         repository.add.assert_not_called()
+
+    def test_rejects_password_shorter_than_minimum_length(
+        self, service: UserService, repository: MagicMock, hasher: MagicMock
+    ) -> None:
+        repository.exists.return_value = False
+
+        with pytest.raises(InvalidPasswordError, match="at least 8"):
+            service.register("alice", "short")
+
+        hasher.hash.assert_not_called()
+        repository.add.assert_not_called()
+
+    def test_accepts_password_of_exactly_minimum_length(
+        self, service: UserService, repository: MagicMock
+    ) -> None:
+        repository.exists.return_value = False
+
+        service.register("alice", "12345678")
+
+        repository.add.assert_called_once()
+
+    def test_minimum_password_length_is_configurable(
+        self, repository: MagicMock, hasher: MagicMock
+    ) -> None:
+        repository.exists.return_value = False
+        service = UserService(repository, hasher, min_password_length=12)
+
+        with pytest.raises(InvalidPasswordError, match="at least 12"):
+            service.register("alice", "elevenchars")
