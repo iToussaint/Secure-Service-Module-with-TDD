@@ -1,5 +1,7 @@
 """The user authentication service."""
 
+import logging
+
 from secure_service_module_with_tdd.exceptions import (
     InvalidPasswordError,
     UserAlreadyExistsError,
@@ -19,31 +21,47 @@ class UserService:
         repository: UserRepository,
         hasher: PasswordHasher,
         min_password_length: int = DEFAULT_MIN_PASSWORD_LENGTH,
+        logger: logging.Logger | None = None,
     ) -> None:
         self._repository = repository
         self._hasher = hasher
         self._min_password_length = min_password_length
+        self._logger = logger or logging.getLogger(__name__)
 
     def register(self, username: str, password: str) -> User:
         """Register a new user."""
-        self._enforce_password_policy(password)
+        if len(password) < self._min_password_length:
+            self._logger.warning(
+                "registration_rejected",
+                extra={"username": username, "reason": "weak_password"},
+            )
+            raise InvalidPasswordError(
+                f"Password must be at least {self._min_password_length} characters"
+            )
         if self._repository.exists(username):
+            self._logger.warning(
+                "registration_rejected",
+                extra={"username": username, "reason": "user_already_exists"},
+            )
             raise UserAlreadyExistsError(f"User {username!r} already exists")
         user = User(username=username, password_hash=self._hasher.hash(password))
         self._repository.add(user)
+        self._logger.info("user_registered", extra={"username": username})
         return user
 
     def login(self, username: str, password: str) -> User:
         """Verify a user's credentials."""
         user = self._repository.get_by_username(username)
         if user is None:
+            self._logger.warning(
+                "login_failed", extra={"username": username, "reason": "user_not_found"}
+            )
             raise UserNotFoundError(f"User {username!r} not found")
         if not self._hasher.verify(password, user.password_hash):
-            raise InvalidPasswordError("Invalid credentials")
-        return user
-
-    def _enforce_password_policy(self, password: str) -> None:
-        if len(password) < self._min_password_length:
-            raise InvalidPasswordError(
-                f"Password must be at least {self._min_password_length} characters"
+            self._logger.warning(
+                "login_failed",
+                extra={"username": username, "reason": "invalid_password"},
             )
+            raise InvalidPasswordError("Invalid credentials")
+        self._logger.info("login_succeeded", extra={"username": username})
+        return user
