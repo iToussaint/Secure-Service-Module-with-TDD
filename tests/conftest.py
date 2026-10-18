@@ -1,5 +1,6 @@
 """Shared fixtures: the service is built with mocked dependencies."""
 
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,5 +23,10 @@ def hasher(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.fixture
-def service(repository: MagicMock, hasher: MagicMock) -> UserService:
-    return UserService(repository=repository, hasher=hasher)
+def logger(mocker: MockerFixture) -> MagicMock:
+    return mocker.create_autospec(logging.Logger, instance=True)
+
+
+@pytest.fixture
+def service(repository: MagicMock, hasher: MagicMock, logger: MagicMock) -> UserService:
+    return UserService(repository=repository, hasher=hasher, logger=logger)
