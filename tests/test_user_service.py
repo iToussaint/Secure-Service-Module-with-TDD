@@ -7,6 +7,7 @@ import pytest
 from secure_service_module_with_tdd.exceptions import (
     InvalidPasswordError,
     UserAlreadyExistsError,
+    UserNotFoundError,
 )
 from secure_service_module_with_tdd.models import User
 from secure_service_module_with_tdd.service import UserService
@@ -63,3 +64,36 @@ class TestRegister:
 
         with pytest.raises(InvalidPasswordError, match="at least 12"):
             service.register("alice", "elevenchars")
+
+
+class TestLogin:
+    def test_returns_user_when_credentials_are_valid(
+        self, service: UserService, repository: MagicMock, hasher: MagicMock
+    ) -> None:
+        stored = User("alice", "hashed-password")
+        repository.get_by_username.return_value = stored
+        hasher.verify.return_value = True
+
+        user = service.login("alice", "s3cure-pass")
+
+        hasher.verify.assert_called_once_with("s3cure-pass", "hashed-password")
+        assert user == stored
+
+    def test_raises_user_not_found_for_unknown_username(
+        self, service: UserService, repository: MagicMock, hasher: MagicMock
+    ) -> None:
+        repository.get_by_username.return_value = None
+
+        with pytest.raises(UserNotFoundError, match="ghost"):
+            service.login("ghost", "s3cure-pass")
+
+        hasher.verify.assert_not_called()
+
+    def test_raises_invalid_password_for_wrong_password(
+        self, service: UserService, repository: MagicMock, hasher: MagicMock
+    ) -> None:
+        repository.get_by_username.return_value = User("alice", "hashed-password")
+        hasher.verify.return_value = False
+
+        with pytest.raises(InvalidPasswordError, match="Invalid credentials"):
+            service.login("alice", "wrong-pass")
