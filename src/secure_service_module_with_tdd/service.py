@@ -32,6 +32,13 @@ class UserService:
         self._repository.add(user)
         return user
 
+    def login(self, username: str, password: str) -> User:
+        """Verify a user's credentials."""
+        user = self._repository.get_by_username(username)
+        assert user is not None
+        self._hasher.verify(password, user.password_hash)
+        return user
+
     def _enforce_password_policy(self, password: str) -> None:
         if len(password) < self._min_password_length:
             raise InvalidPasswordError(
