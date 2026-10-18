@@ -1,5 +1,6 @@
 """Unit tests for UserService, isolated from storage and hashing via mocks."""
 
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -97,3 +98,119 @@ class TestLogin:
 
         with pytest.raises(InvalidPasswordError, match="Invalid credentials"):
             service.login("alice", "wrong-pass")
+
+
+class TestLogging:
+    def test_logs_successful_registration(
+        self, service: UserService, repository: MagicMock, logger: MagicMock
+    ) -> None:
+        repository.exists.return_value = False
+
+        service.register("alice", "s3cure-pass")
+
+        logger.info.assert_called_once_with(
+            "user_registered", extra={"username": "alice"}
+        )
+
+    def test_logs_registration_rejected_for_weak_password(
+        self, service: UserService, logger: MagicMock
+    ) -> None:
+        with pytest.raises(InvalidPasswordError):
+            service.register("alice", "short")
+
+        logger.warning.assert_called_once_with(
+            "registration_rejected",
+            extra={"username": "alice", "reason": "weak_password"},
+        )
+
+    def test_logs_registration_rejected_for_duplicate_user(
+        self, service: UserService, repository: MagicMock, logger: MagicMock
+    ) -> None:
+        repository.exists.return_value = True
+
+        with pytest.raises(UserAlreadyExistsError):
+            service.register("alice", "s3cure-pass")
+
+        logger.warning.assert_called_once_with(
+            "registration_rejected",
+            extra={"username": "alice", "reason": "user_already_exists"},
+        )
+
+    def test_logs_successful_login(
+        self,
+        service: UserService,
+        repository: MagicMock,
+        hasher: MagicMock,
+        logger: MagicMock,
+    ) -> None:
+        repository.get_by_username.return_value = User("alice", "hashed-password")
+        hasher.verify.return_value = True
+
+        service.login("alice", "s3cure-pass")
+
+        logger.info.assert_called_once_with(
+            "login_succeeded", extra={"username": "alice"}
+        )
+
+    def test_logs_failed_login_for_unknown_user(
+        self, service: UserService, repository: MagicMock, logger: MagicMock
+    ) -> None:
+        repository.get_by_username.return_value = None
+
+        with pytest.raises(UserNotFoundError):
+            service.login("ghost", "s3cure-pass")
+
+        logger.warning.assert_called_once_with(
+            "login_failed", extra={"username": "ghost", "reason": "user_not_found"}
+        )
+
+    def test_logs_failed_login_for_wrong_password(
+        self,
+        service: UserService,
+        repository: MagicMock,
+        hasher: MagicMock,
+        logger: MagicMock,
+    ) -> None:
+        repository.get_by_username.return_value = User("alice", "hashed-password")
+        hasher.verify.return_value = False
+
+        with pytest.raises(InvalidPasswordError):
+            service.login("alice", "wrong-pass")
+
+        logger.warning.assert_called_once_with(
+            "login_failed", extra={"username": "alice", "reason": "invalid_password"}
+        )
+
+    def test_never_logs_the_plain_text_password(
+        self,
+        service: UserService,
+        repository: MagicMock,
+        hasher: MagicMock,
+        logger: MagicMock,
+    ) -> None:
+        repository.exists.return_value = False
+        repository.get_by_username.return_value = User("alice", "hashed-password")
+        hasher.verify.return_value = False
+
+        service.register("alice", "s3cure-pass")
+        with pytest.raises(InvalidPasswordError):
+            service.login("alice", "s3cure-pass")
+
+        assert "s3cure-pass" not in str(logger.mock_calls)
+
+    def test_uses_module_logger_by_default(
+        self,
+        repository: MagicMock,
+        hasher: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        repository.exists.return_value = False
+        service = UserService(repository, hasher)
+
+        with caplog.at_level(logging.INFO):
+            service.register("alice", "s3cure-pass")
+
+        [record] = caplog.records
+        assert record.name == "secure_service_module_with_tdd.service"
+        assert record.getMessage() == "user_registered"
+        assert record.__dict__["username"] == "alice"
