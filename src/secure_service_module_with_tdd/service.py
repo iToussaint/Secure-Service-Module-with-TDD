@@ -3,6 +3,7 @@
 from secure_service_module_with_tdd.exceptions import (
     InvalidPasswordError,
     UserAlreadyExistsError,
+    UserNotFoundError,
 )
 from secure_service_module_with_tdd.interfaces import PasswordHasher, UserRepository
 from secure_service_module_with_tdd.models import User
@@ -35,8 +36,10 @@ class UserService:
     def login(self, username: str, password: str) -> User:
         """Verify a user's credentials."""
         user = self._repository.get_by_username(username)
-        assert user is not None
-        self._hasher.verify(password, user.password_hash)
+        if user is None:
+            raise UserNotFoundError(f"User {username!r} not found")
+        if not self._hasher.verify(password, user.password_hash):
+            raise InvalidPasswordError("Invalid credentials")
         return user
 
     def _enforce_password_policy(self, password: str) -> None:
