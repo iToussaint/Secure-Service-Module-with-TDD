@@ -63,3 +63,17 @@ class TestRegister:
 
         with pytest.raises(InvalidPasswordError, match="at least 12"):
             service.register("alice", "elevenchars")
+
+
+class TestLogin:
+    def test_returns_user_when_credentials_are_valid(
+        self, service: UserService, repository: MagicMock, hasher: MagicMock
+    ) -> None:
+        stored = User("alice", "hashed-password")
+        repository.get_by_username.return_value = stored
+        hasher.verify.return_value = True
+
+        user = service.login("alice", "s3cure-pass")
+
+        hasher.verify.assert_called_once_with("s3cure-pass", "hashed-password")
+        assert user == stored
