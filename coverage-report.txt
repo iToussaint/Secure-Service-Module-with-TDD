@@ -1,0 +1,12 @@
+Name                                                   Stmts   Miss Branch BrPart  Cover   Missing
+--------------------------------------------------------------------------------------------------
+src\secure_service_module_with_tdd\__init__.py             8      0      0      0   100%
+src\secure_service_module_with_tdd\exceptions.py           3      0      0      0   100%
+src\secure_service_module_with_tdd\hashers.py             17      0      2      0   100%
+src\secure_service_module_with_tdd\interfaces.py          14      0      0      0   100%
+src\secure_service_module_with_tdd\logging_config.py      11      0      2      0   100%
+src\secure_service_module_with_tdd\models.py               3      0      0      0   100%
+src\secure_service_module_with_tdd\repositories.py        19      0      2      0   100%
+src\secure_service_module_with_tdd\service.py             36      0      8      0   100%
+--------------------------------------------------------------------------------------------------
+TOTAL                                                    111      0     14      0   100%
